@@ -388,9 +388,10 @@ protected:
   
   void configureBackupModes(std::vector<geometry_msgs::PoseStamped>& transformed_plan,  int& goal_idx);
 
-
   
 private:
+  void robotModelPubTimerCB(const ros::TimerEvent& event);
+
   // Definition of member variables
 
   // external objects (store weak pointers)
@@ -399,6 +400,9 @@ private:
   tf2_ros::Buffer* tf_; //!< pointer to tf buffer
     
   // internal objects (memory management owned)
+  ros::Publisher robot_model_pub_; //!< Publisher for the robot footprint model
+  ros::Timer robot_model_pub_timer_; //!< Timer for publishing the robot footprint model
+  RobotFootprintModelPtr robot_model_; //!< The robot footprint model currently in use
   PlannerInterfacePtr planner_; //!< Instance of the underlying optimal planner class
   ObstContainer obstacles_; //!< Obstacle vector that should be considered during local trajectory optimization
   ViaPointContainer via_points_; //!< Container of via-points that should be considered during local trajectory optimization
@@ -443,6 +447,8 @@ private:
     
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
+
+  static constexpr double ROBOT_MODEL_PUB_RATE = 10; //!< Rate (hertz) for publishing the robot model
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
