@@ -477,8 +477,6 @@ public:
   {   
     markers.push_back(visualization_msgs::Marker());
     visualization_msgs::Marker& marker = markers.back();
-    marker.type = visualization_msgs::Marker::LINE_STRIP;
-    current_pose.toPoseMsg(marker.pose); // all points are transformed into the robot frame!
     
     // line
     geometry_msgs::Point line_start_world;
@@ -493,8 +491,45 @@ public:
     line_end_world.z = 0;
     marker.points.push_back(line_end_world);
 
-    marker.scale.x = 0.05; 
-    marker.color = color;
+    // footprint with min_obstacle_dist
+    markers.push_back(visualization_msgs::Marker());
+    visualization_msgs::Marker& marker2 = markers.back();
+
+    const double r = 0.3;
+    const double ori = atan2(line_end_.y() - line_start_.y(), line_end_.x() - line_start_.x());
+
+    // first half-circle
+    for (double theta = M_PI_2+ori; theta <= 3*M_PI_2+ori; theta += M_PI / 8)
+    {
+      geometry_msgs::Point pt;
+      pt.x = line_start_.x() + r * cos(theta);
+      pt.y = line_start_.y() + r * sin(theta);
+      marker2.points.push_back(pt);
+    }
+
+    // second half-circle
+    for (double theta = -M_PI_2+ori; theta <= M_PI_2+ori; theta += M_PI / 8)
+    {
+      geometry_msgs::Point pt;
+      pt.x = line_end_.x() + r * cos(theta);
+      pt.y = line_end_.y() + r * sin(theta);
+      marker2.points.push_back(pt);
+    }
+
+    // duplicate 1st point to close shape
+    geometry_msgs::Point pt;
+    pt.x = line_start_.x() + r * cos(M_PI_2+ori);
+    pt.y = line_start_.y() + r * sin(M_PI_2+ori);
+    marker2.points.push_back(pt);
+
+    // common meta stuff
+    for (auto& marker : markers)
+    {
+      marker.type = visualization_msgs::Marker::LINE_STRIP;
+      current_pose.toPoseMsg(marker.pose); // all points are transformed into the robot frame!
+      marker.scale.x = 0.05; 
+      marker.color = color;
+    }
   }
   
   /**
