@@ -493,7 +493,7 @@ public:
     line_end_world.z = 0;
     marker.points.push_back(line_end_world);
 
-    marker.scale.x = 0.05; 
+    marker.scale.x = 0.025; 
     marker.color = color;    
 
     // footprint with min_obstacle_dist
@@ -504,7 +504,7 @@ public:
     marker2.color = color;
     current_pose.toPoseMsg(marker2.pose); // all points are transformed into the robot frame!
 
-    const double n = 8;
+    const double n = 9;
     const double r = min_obstacle_dist_;
     const double ori = atan2(line_end_.y() - line_start_.y(), line_end_.x() - line_start_.x());
 
