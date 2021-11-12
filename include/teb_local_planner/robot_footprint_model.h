@@ -477,6 +477,8 @@ public:
   {   
     markers.push_back(visualization_msgs::Marker());
     visualization_msgs::Marker& marker = markers.back();
+    marker.type = visualization_msgs::Marker::LINE_STRIP;
+    current_pose.toPoseMsg(marker.pose); // all points are transformed into the robot frame!
     
     // line
     geometry_msgs::Point line_start_world;
@@ -491,9 +493,16 @@ public:
     line_end_world.z = 0;
     marker.points.push_back(line_end_world);
 
+    marker.scale.x = 0.05; 
+    marker.color = color;    
+
     // footprint with min_obstacle_dist
     markers.push_back(visualization_msgs::Marker());
     visualization_msgs::Marker& marker2 = markers.back();
+    marker2.type = visualization_msgs::Marker::LINE_STRIP;
+    marker2.scale.x = 0.025; 
+    marker2.color = color;
+    current_pose.toPoseMsg(marker2.pose); // all points are transformed into the robot frame!
 
     const double n = 8;
     const double r = min_obstacle_dist_;
@@ -522,15 +531,6 @@ public:
     pt.x = line_start_.x() + r * cos(M_PI_2 + ori);
     pt.y = line_start_.y() + r * sin(M_PI_2 + ori);
     marker2.points.push_back(pt);
-
-    // common meta stuff
-    for (auto& marker : markers)
-    {
-      marker.type = visualization_msgs::Marker::LINE_STRIP;
-      current_pose.toPoseMsg(marker.pose); // all points are transformed into the robot frame!
-      marker.scale.x = 0.05; 
-      marker.color = color;
-    }
   }
   
   /**
