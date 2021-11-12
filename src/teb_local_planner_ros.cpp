@@ -83,8 +83,8 @@ void TebLocalPlannerROS::reconfigureCB(TebLocalPlannerReconfigureConfig& config,
   cfg_.reconfigure(config);
   ros::NodeHandle nh("~/" + name_);
   // create robot footprint/contour model for optimization
-  RobotFootprintModelPtr robot_model = getRobotFootprintFromParamServer(nh);
-  planner_->updateRobotModel(robot_model);
+  robot_model_ = getRobotFootprintFromParamServer(nh, cfg_);
+  planner_->updateRobotModel(robot_model_);
 }
 
 void TebLocalPlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costmap_2d::Costmap2DROS* costmap_ros)
@@ -106,17 +106,17 @@ void TebLocalPlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costm
     visualization_ = TebVisualizationPtr(new TebVisualization(nh, cfg_)); 
         
     // create robot footprint/contour model for optimization
-    RobotFootprintModelPtr robot_model = getRobotFootprintFromParamServer(nh);
+    robot_model_ = getRobotFootprintFromParamServer(nh, cfg_);
     
     // create the planner instance
     if (cfg_.hcp.enable_homotopy_class_planning)
     {
-      planner_ = PlannerInterfacePtr(new HomotopyClassPlanner(cfg_, &obstacles_, robot_model, visualization_, &via_points_));
+      planner_ = PlannerInterfacePtr(new HomotopyClassPlanner(cfg_, &obstacles_, robot_model_, visualization_, &via_points_));
       ROS_INFO("Parallel planning in distinctive topologies enabled.");
     }
     else
     {
-      planner_ = PlannerInterfacePtr(new TebOptimalPlanner(cfg_, &obstacles_, robot_model, visualization_, &via_points_));
+      planner_ = PlannerInterfacePtr(new TebOptimalPlanner(cfg_, &obstacles_, robot_model_, visualization_, &via_points_));
       ROS_INFO("Parallel planning in distinctive topologies disabled.");
     }
     
@@ -170,7 +170,7 @@ void TebLocalPlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costm
     dynamic_recfg_->setCallback(cb);
     
     // validate optimization footprint and costmap footprint
-    validateFootprints(robot_model->getInscribedRadius(), robot_inscribed_radius_, cfg_.obstacles.min_obstacle_dist);
+    validateFootprints(robot_model_->getInscribedRadius(), robot_inscribed_radius_, cfg_.obstacles.min_obstacle_dist);
         
     // setup callback for custom obstacles
     custom_obst_sub_ = nh.subscribe("obstacles", 1, &TebLocalPlannerROS::customObstacleCB, this);
@@ -183,6 +183,10 @@ void TebLocalPlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costm
     double controller_frequency = 5;
     nh_move_base.param("controller_frequency", controller_frequency, controller_frequency);
     failure_detector_.setBufferLength(std::round(cfg_.recovery.oscillation_filter_duration*controller_frequency));
+
+    // init robot model pub
+    robot_model_pub_ = nh.advertise<visualization_msgs::Marker>("robot_model", 1000);
+    robot_model_pub_timer_ = nh.createTimer(ros::Duration(1.0 / ROBOT_MODEL_PUB_RATE), &TebLocalPlannerROS::robotModelPubTimerCB, this);
     
     // set initialized flag
     initialized_ = true;
@@ -1032,7 +1036,7 @@ void TebLocalPlannerROS::customViaPointsCB(const nav_msgs::Path::ConstPtr& via_p
   custom_via_points_active_ = !via_points_.empty();
 }
      
-RobotFootprintModelPtr TebLocalPlannerROS::getRobotFootprintFromParamServer(const ros::NodeHandle& nh)
+RobotFootprintModelPtr TebLocalPlannerROS::getRobotFootprintFromParamServer(const ros::NodeHandle& nh, const TebConfig& config)
 {
   std::string model_name; 
   if (!nh.getParam("footprint_model/type", model_name))
@@ -1086,7 +1090,7 @@ RobotFootprintModelPtr TebLocalPlannerROS::getRobotFootprintFromParamServer(cons
     
     ROS_INFO_STREAM("Footprint model 'line' (line_start: [" << line_start[0] << "," << line_start[1] <<"]m, line_end: ["
                      << line_end[0] << "," << line_end[1] << "]m) loaded for trajectory optimization.");
-    return boost::make_shared<LineRobotFootprint>(Eigen::Map<const Eigen::Vector2d>(line_start.data()), Eigen::Map<const Eigen::Vector2d>(line_end.data()));
+    return boost::make_shared<LineRobotFootprint>(Eigen::Map<const Eigen::Vector2d>(line_start.data()), Eigen::Map<const Eigen::Vector2d>(line_end.data()), config.obstacles.min_obstacle_dist);
   }
   
   // two circles
@@ -1203,6 +1207,37 @@ double TebLocalPlannerROS::getNumberFromXMLRPC(XmlRpc::XmlRpcValue& value, const
      throw std::runtime_error("Values in the footprint specification must be numbers");
    }
    return value.getType() == XmlRpc::XmlRpcValue::TypeInt ? (int)(value) : (double)(value);
+}
+
+void TebLocalPlannerROS::robotModelPubTimerCB(const ros::TimerEvent& event)
+{
+  geometry_msgs::PoseStamped robot_pose;
+  costmap_ros_->getRobotPose(robot_pose);
+
+  // create markers with green color
+  std::vector<visualization_msgs::Marker> markers;
+  std_msgs::ColorRGBA green = TebVisualization::toColorMsg(0.5, 0.0, 0.8, 0.0);
+  robot_model_->visualizeRobot(PoseSE2(robot_pose.pose), markers, green);
+
+  // no need to do anything if no markers
+  if (markers.empty())
+    return;
+  
+  // publish the markers
+  int idx = 1;
+  for (std::vector<visualization_msgs::Marker>::iterator marker_it = markers.begin(); marker_it != markers.end(); ++marker_it, ++idx)
+  {
+    marker_it->header.frame_id = cfg_.map_frame;
+    marker_it->header.stamp = event.current_real;
+    marker_it->action = visualization_msgs::Marker::ADD;
+    marker_it->ns = "robot_footprint_model";
+    marker_it->id = idx;
+
+    // automatic cleanup!
+    marker_it->lifetime = ros::Duration(0.5);
+
+    robot_model_pub_.publish(*marker_it);
+  }
 }
 
 } // end namespace teb_local_planner
