@@ -68,6 +68,8 @@ void TebConfig::loadRosParamFromNodeHandle(const ros::NodeHandle& nh)
   nh.param("publish_feedback", trajectory.publish_feedback, trajectory.publish_feedback);
   nh.param("min_resolution_collision_check_angular", trajectory.min_resolution_collision_check_angular, trajectory.min_resolution_collision_check_angular);
   nh.param("control_look_ahead_poses", trajectory.control_look_ahead_poses, trajectory.control_look_ahead_poses);
+  nh.param("dynamic_look_ahead", trajectory.dynamic_look_ahead, trajectory.dynamic_look_ahead);
+  
   
   // Robot
   nh.param("max_vel_x", robot.max_vel_x, robot.max_vel_x);
@@ -198,6 +200,7 @@ void TebConfig::reconfigure(TebLocalPlannerReconfigureConfig& cfg)
   trajectory.feasibility_check_no_poses = cfg.feasibility_check_no_poses;
   trajectory.publish_feedback = cfg.publish_feedback;
   trajectory.control_look_ahead_poses = cfg.control_look_ahead_poses;
+  trajectory.dynamic_look_ahead = cfg.dynamic_look_ahead;
   
   // Robot     
   robot.max_vel_x = cfg.max_vel_x;

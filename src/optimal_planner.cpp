@@ -1148,6 +1148,19 @@ bool TebOptimalPlanner::getVelocityCommand(double& vx, double& vy, double& omega
     omega = 0;
     return false;
   }
+
+  // change look ahead poses to match robot velocity
+  const double max_vel_x = std::max(cfg_->robot.max_vel_x, cfg_->robot.max_vel_x_backwards);
+  if (cfg_->trajectory.dynamic_look_ahead)
+  {
+    ROS_ERROR_STREAM("--------------------------------");
+    ROS_ERROR_STREAM("look_ahead_poses: " << look_ahead_poses);
+    const double ratio = std::min(1.0, vel_start_.second.linear.x / max_vel_x);
+    ROS_ERROR_STREAM("vel: " << vel_start_.second.linear.x << ", ratio: " << ratio);
+    look_ahead_poses = 1 + ratio * (cfg_->trajectory.control_look_ahead_poses - 1);
+    ROS_ERROR_STREAM("look_ahead_poses: " << look_ahead_poses);
+  }
+
   look_ahead_poses = std::max(1, std::min(look_ahead_poses, teb_.sizePoses() - 1));
   double dt = 0.0;
   for(int counter = 0; counter < look_ahead_poses; ++counter)
