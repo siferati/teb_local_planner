@@ -200,6 +200,11 @@ public:
     marker.scale.x = 0.025; 
     marker.color = color;
 
+    if (min_obstacle_dist_ <= 0)
+    {
+      return;
+    }
+
     // footprint with min_obstacle_dist
     markers.push_back(visualization_msgs::Marker());
     visualization_msgs::Marker& marker2 = markers.back();
