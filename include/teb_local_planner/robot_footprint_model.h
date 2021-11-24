@@ -208,15 +208,14 @@ public:
     // footprint with min_obstacle_dist
     markers.push_back(visualization_msgs::Marker());
     visualization_msgs::Marker& marker2 = markers.back();
-    marker2.type = visualization_msgs::Marker::LINE_LIST;
+    marker2.type = visualization_msgs::Marker::LINE_STRIP;
     marker2.scale.x = 0.025; 
     marker2.color = color;
     current_pose.toPoseMsg(marker2.pose); // all points are transformed into the robot frame!
 
-    const double n = 20;
+    const double n = 9;
     const double r = min_obstacle_dist_;
-    double theta = 0;
-    for (int i = 0; i < n; ++i, theta += 2 * M_PI / n)
+    for (double theta = 0; theta <= 2 * M_PI; theta += M_PI / n)
     {
       geometry_msgs::Point pt;
       pt.x = r * cos(theta);
